@@ -16,7 +16,7 @@ To Do:
 
 ## Citations
 
-```
+```BibTeX
 @inproceedings{
     anonymous2021an,
     title={An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale},
