@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from Transformer import TransformerModel
-from positionEncoding import FixedPositionalEncoding, LearnedPositionalEncoding
+from PositionalEncoding import FixedPositionalEncoding, LearnedPositionalEncoding
 
 
 class VisionTransformer(nn.Module):

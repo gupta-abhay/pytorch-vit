@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from BiT import ResNetV2Model
 from Transformer import TransformerModel
-from positionEncoding import FixedPositionalEncoding, LearnedPositionalEncoding
+from PositionalEncoding import FixedPositionalEncoding, LearnedPositionalEncoding
 
 
 class HybridVisionTransformer(nn.Module):
