@@ -11,7 +11,8 @@ Current Support for:
 
 To Do:
 
-- [ ] Axial ViT
+- [ ] Hybrid ViT (with support for AxialResNets as backbone)
+- [ ] Full Axial-ViT
 - [ ] Training Script
 
 ## Citations
