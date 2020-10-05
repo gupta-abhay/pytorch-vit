@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from BiT import ResNetV2
-from positionEncoding import PositionalEncoding
+from BiT import ResNetV2Model
+from Transformer import TransformerModel
+from positionEncoding import FixedPositionalEncoding, LearnedPositionalEncoding
 
 
 class HybridVisionTransformer(nn.Module):
@@ -18,8 +19,9 @@ class HybridVisionTransformer(nn.Module):
         backbone='r50x1',
         include_conv5=False,
         dropout_rate=0.1,
+        positional_encoding_type="learned",
     ):
-        super().__init__()
+        super(HybridVisionTransformer, self).__init__()
 
         assert embedding_dim % num_heads == 0
 
@@ -32,32 +34,47 @@ class HybridVisionTransformer(nn.Module):
         )
 
         self.projection_encoding = nn.Linear(self.flatten_dim, embedding_dim)
-        self.position_encoding = PositionalEncoding(
-            embedding_dim, dropout_rate=0.1
-        )
+        self.cls_token = nn.Parameter(torch.randn(1, 1, embedding_dim))
 
         self.decoder_dim = int(img_dim / 16.0) ** 2
         if self.include_conv5:
             self.decoder_dim = int(img_dim / 32.0) ** 2
 
-        encoder_layer = nn.TransformerEncoderLayer(
-            embedding_dim, num_heads, hidden_dim, dropout=dropout_rate
+        self.decoder_dim += 1  # for the cls token
+
+        if positional_encoding_type == "learned":
+            self.position_encoding = LearnedPositionalEncoding(
+                self.decoder_dim, self.embedding_dim, self.decoder_dim
+            )
+        elif positional_encoding_type == "fixed":
+            self.position_encoding = FixedPositionalEncoding(
+                self.embedding_dim,
+            )
+
+        self.transformer = TransformerModel(
+            embedding_dim, num_layers, num_heads, hidden_dim
         )
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
-        self.decoder = nn.Linear(embedding_dim * self.decoder_dim, out_dim)
+        self.mlp_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, out_dim),
+        )
+        self.to_cls_token = nn.Identity()
 
     def forward(self, x):
         # apply bit backbone
         x = self.backbone_model(x, include_conv5=self.include_conv5)
         x = x.view(x.size(0), -1, self.flatten_dim)
 
-        x = F.relu(self.projection_encoding(x))
+        x = self.projection_encoding(x)
+        cls_tokens = self.cls_token.expand(x.shape[0], -1, -1)
+        x = torch.cat((cls_tokens, x), dim=1)
         x = self.position_encoding(x)
 
         # apply transformer
-        x = self.encoder(x)
-        x = x.view(-1, self.embedding_dim * self.decoder_dim)
-        x = self.decoder(x)
+        x = self.transformer(x)
+        x = self.to_cls_token(x[:, 0])
+        x = self.mlp_head(x)
         x = F.log_softmax(x, dim=-1)
 
         return x
@@ -77,11 +94,11 @@ class HybridVisionTransformer(nn.Module):
 
         if model_name in ['r50', 'r101'] and width_factor in [2, 4]:
             return ValueError(
-                "Invalid Configuration of models -- exepect 50x1, 50x3, 101x1, 101x3"
+                "Invalid Configuration of models -- expect 50x1, 50x3, 101x1, 101x3"
             )
         elif model_name == 'r152' and width_factor in [1, 3]:
             return ValueError(
-                "Invalid Configuration of models -- exepect 152x2, 152x4"
+                "Invalid Configuration of models -- expect 152x2, 152x4"
             )
 
         block_units_dict = {
@@ -90,7 +107,7 @@ class HybridVisionTransformer(nn.Module):
             'r152': [3, 8, 36, 3],
         }
         block_units = block_units_dict.get(model_name, [3, 4, 6, 3])
-        model = ResNetV2(block_units, width_factor, head_size=out_dim)
+        model = ResNetV2Model(block_units, width_factor, head_size=out_dim)
 
         if self.num_channels == 3:
             flatten_dim = 1024 * width_factor
@@ -103,4 +120,4 @@ class HybridVisionTransformer(nn.Module):
 if __name__ == '__main__':
     model = HybridVisionTransformer(224, 1000, 3, 768, 12, 12, 3072)
     x = torch.randn(8, 3, 224, 224)
-    model(x)
+    print(model(x))
