@@ -2,10 +2,9 @@ import torch
 import torch.nn as nn
 
 
-class PositionalEncoding(nn.Module):
-    def __init__(self, embedding_dim, dropout_rate=0.1, max_length=5000):
-        super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout_rate)
+class FixedPositionalEncoding(nn.Module):
+    def __init__(self, embedding_dim, max_length=5000):
+        super(FixedPositionalEncoding, self).__init__()
 
         pe = torch.zeros(max_length, embedding_dim)
         position = torch.arange(0, max_length, dtype=torch.float).unsqueeze(1)
@@ -20,4 +19,22 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x):
         x = x + self.pe[: x.size(0), :]
-        return self.dropout(x)
+        return x
+
+
+class LearnedPositionalEncoding(nn.Module):
+    def __init__(self, max_position_embeddings, embedding_dim, seq_length):
+        super(LearnedPositionalEncoding, self).__init__()
+        self.pe = nn.Embedding(max_position_embeddings, embedding_dim)
+        self.seq_length = seq_length
+
+        self.register_buffer(
+            "position_ids", torch.arange(self.seq_length).expand((1, -1))
+        )
+
+    def forward(self, x, position_ids=None):
+        if position_ids is None:
+            position_ids = self.position_ids[:, : self.seq_length]
+
+        position_embeddings = self.pe(position_ids)
+        return x + position_embeddings

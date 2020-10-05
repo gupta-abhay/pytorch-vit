@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from positionEncoding import PositionalEncoding
+from Transformer import TransformerModel
+from positionEncoding import FixedPositionalEncoding, LearnedPositionalEncoding
 
 
 class VisionTransformer(nn.Module):
@@ -15,9 +16,9 @@ class VisionTransformer(nn.Module):
         num_heads,
         num_layers,
         hidden_dim,
-        dropout_rate=0.1,
+        positional_encoding_type="learned",
     ):
-        super().__init__()
+        super(VisionTransformer, self).__init__()
 
         assert embedding_dim % num_heads == 0
         assert img_dim % patch_dim == 0
@@ -28,18 +29,29 @@ class VisionTransformer(nn.Module):
         self.num_channels = num_channels
 
         self.num_patches = int((img_dim // patch_dim) ** 2)
+        self.seq_length = self.num_patches + 1
         self.flatten_dim = patch_dim * patch_dim * num_channels
+        self.cls_token = nn.Parameter(torch.randn(1, 1, embedding_dim))
 
         self.linear_encoding = nn.Linear(self.flatten_dim, embedding_dim)
-        self.position_encoding = PositionalEncoding(
-            embedding_dim, dropout_rate=0.1
-        )
+        if positional_encoding_type == "learned":
+            self.position_encoding = LearnedPositionalEncoding(
+                self.seq_length, self.embedding_dim, self.seq_length
+            )
+        elif positional_encoding_type == "fixed":
+            self.position_encoding = FixedPositionalEncoding(
+                self.embedding_dim,
+            )
 
-        encoder_layer = nn.TransformerEncoderLayer(
-            embedding_dim, num_heads, hidden_dim, dropout=dropout_rate
+        self.transformer = TransformerModel(
+            embedding_dim, num_layers, num_heads, hidden_dim
         )
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
-        self.decoder = nn.Linear(embedding_dim * self.num_patches, out_dim)
+        self.mlp_head = nn.Sequential(
+            nn.Linear(embedding_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, out_dim),
+        )
+        self.to_cls_token = nn.Identity()
 
     def forward(self, x):
         x = (
@@ -49,16 +61,15 @@ class VisionTransformer(nn.Module):
         )
         x = x.view(x.size(0), -1, self.flatten_dim)
 
-        x = F.relu(self.linear_encoding(x))
+        x = self.linear_encoding(x)
+        cls_tokens = self.cls_token.expand(x.shape[0], -1, -1)
+        x = torch.cat((cls_tokens, x), dim=1)
         x = self.position_encoding(x)
 
         # apply transformer
-        x = self.encoder(x)
-        print("after encoder", x.shape)
-        x = x.view(-1, self.embedding_dim * self.num_patches)
-        print("after reshape", x.shape)
-        x = self.decoder(x)
-        print("after decoder", x.shape)
+        x = self.transformer(x)
+        x = self.to_cls_token(x[:, 0])
+        x = self.mlp_head(x)
         x = F.log_softmax(x, dim=-1)
 
         return x
