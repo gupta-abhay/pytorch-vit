@@ -2,7 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from Transformer import TransformerModel
-from PositionalEncoding import FixedPositionalEncoding, LearnedPositionalEncoding
+from PositionalEncoding import (
+    FixedPositionalEncoding,
+    LearnedPositionalEncoding,
+)
 
 
 class VisionTransformer(nn.Module):
@@ -73,11 +76,3 @@ class VisionTransformer(nn.Module):
         x = F.log_softmax(x, dim=-1)
 
         return x
-
-
-if __name__ == '__main__':
-    # imagenet example
-    model = VisionTransformer(224, 16, 1000, 3, 768, 12, 12, 3072)
-
-    x = torch.randn(8, 3, 224, 224)
-    print(model(x))

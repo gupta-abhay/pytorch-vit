@@ -3,7 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from BiT import ResNetV2Model
 from Transformer import TransformerModel
-from PositionalEncoding import FixedPositionalEncoding, LearnedPositionalEncoding
+from PositionalEncoding import (
+    FixedPositionalEncoding,
+    LearnedPositionalEncoding,
+)
 
 
 class HybridVisionTransformer(nn.Module):
@@ -115,9 +118,3 @@ class HybridVisionTransformer(nn.Module):
             flatten_dim *= 2
 
         return model, flatten_dim
-
-
-if __name__ == '__main__':
-    model = HybridVisionTransformer(224, 1000, 3, 768, 12, 12, 3072)
-    x = torch.randn(8, 3, 224, 224)
-    print(model(x))
