@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from bit import ResNetV2
+from BiT import ResNetV2
 from positionEncoding import PositionalEncoding
 
 
