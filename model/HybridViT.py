@@ -31,7 +31,7 @@ class HybridVisionTransformer(nn.Module):
             backbone, out_dim
         )
 
-        self.linear_encoding = nn.Linear(self.flatten_dim, embedding_dim)
+        self.projection_encoding = nn.Linear(self.flatten_dim, embedding_dim)
         self.position_encoding = PositionalEncoding(
             embedding_dim, dropout_rate=0.1
         )
@@ -51,7 +51,7 @@ class HybridVisionTransformer(nn.Module):
         x = self.backbone_model(x, include_conv5=self.include_conv5)
         x = x.view(x.size(0), -1, self.flatten_dim)
 
-        x = F.relu(self.linear_encoding(x))
+        x = F.relu(self.projection_encoding(x))
         x = self.position_encoding(x)
 
         # apply transformer
