@@ -1,27 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-
-class PositionalEncoding(nn.Module):
-    def __init__(self, embedding_dim, dropout_rate=0.1, max_length=5000):
-        super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout_rate)
-
-        pe = torch.zeros(max_length, embedding_dim)
-        position = torch.arange(0, max_length, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, embedding_dim, 2).float()
-            * (-torch.log(torch.tensor(10000.0)) / embedding_dim)
-        )
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        x = x + self.pe[: x.size(0), :]
-        return self.dropout(x)
+from positionEncoding import PositionalEncoding
 
 
 class VisionTransformer(nn.Module):
@@ -74,8 +54,19 @@ class VisionTransformer(nn.Module):
 
         # apply transformer
         x = self.encoder(x)
+        print("after encoder", x.shape)
         x = x.view(-1, self.embedding_dim * self.num_patches)
+        print("after reshape", x.shape)
         x = self.decoder(x)
+        print("after decoder", x.shape)
         x = F.log_softmax(x, dim=-1)
 
         return x
+
+
+if __name__ == '__main__':
+    # imagenet example
+    model = VisionTransformer(224, 16, 1000, 3, 768, 12, 12, 3072)
+
+    x = torch.randn(8, 3, 224, 224)
+    print(model(x))
