@@ -10,10 +10,10 @@ Current Support for:
 
 - [x] Vanilla ViT
 - [x] Hybrid ViT (with support for BiT-style resnets)
+- [x] Hybrid ViT (with support for AxialResNets as backbone)
 
 To Do:
 
-- [ ] Hybrid ViT (with support for AxialResNets as backbone)
 - [ ] Full Axial-ViT
 - [ ] Training Script
 
