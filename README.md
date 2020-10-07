@@ -18,10 +18,44 @@ To Do:
   - [ ] Correct hyper parameters
 - [ ] Full Axial-ViT
 
+## Installation
+
+```bash
+pip install tensorboardX
+mkdir data
+cd data
+ln -s path/to/dataset imagenet
+```
+
+## Running the Scripts
+
+For non-distributed training:
+
+```bash
+python train.py --model ViT --name vit_logs
+```
+
+For distributed training:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 python dist_train.py --model ViT --name vit_dist_logs
+```
+
+For testing add the `--test` parameter:
+
+```bash
+python train.py --model ViT --name vit_logs --test
+```
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 python dist_train.py --model ViT --name vit_dist_logs --test
+```
+
 ## References
 
 1. [BiTResNet](https://github.com/google-research/big_transfer/tree/master/bit_pytorch)
 2. [AxialResNet](https://github.com/csrhddlam/axial-deeplab)
+3. [Training Scripts](https://github.com/csrhddlam/axial-deeplab)
 
 ## Citations
 

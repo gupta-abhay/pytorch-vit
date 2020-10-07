@@ -70,7 +70,7 @@ def parse_args():
         default=False,
         help="To apply color augmentation or not.",
     )
-    parser.add_argument('--model', default='axial50s', help='Model names.')
+    parser.add_argument('--model', default='ViT', help='Model names.')
     parser.add_argument(
         '--epochs', type=int, default=130, help='number of epochs to train'
     )
