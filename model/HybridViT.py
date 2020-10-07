@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from BiT import ResNetV2Model
+from AxialNet import AxialAttentionNet
 from Transformer import TransformerModel
 from PositionalEncoding import (
     FixedPositionalEncoding,
@@ -19,10 +20,10 @@ class HybridVisionTransformer(nn.Module):
         num_heads,
         num_layers,
         hidden_dim,
-        backbone='r50x1',
-        include_conv5=False,
-        dropout_rate=0.1,
-        positional_encoding_type="learned",
+        include_conv5,
+        dropout_rate,
+        positional_encoding_type,
+        backbone=None,
     ):
         super(HybridVisionTransformer, self).__init__()
 
@@ -30,11 +31,12 @@ class HybridVisionTransformer(nn.Module):
 
         self.embedding_dim = embedding_dim
         self.num_heads = num_heads
+        self.out_dim = out_dim
         self.num_channels = num_channels
         self.include_conv5 = include_conv5
-        self.backbone_model, self.flatten_dim = self.configure_backbone(
-            backbone, out_dim
-        )
+        self.backbone = backbone
+
+        self.backbone_model, self.flatten_dim = self.configure_backbone()
 
         self.projection_encoding = nn.Linear(self.flatten_dim, embedding_dim)
         self.cls_token = nn.Parameter(torch.randn(1, 1, embedding_dim))
@@ -82,7 +84,40 @@ class HybridVisionTransformer(nn.Module):
 
         return x
 
-    def configure_backbone(self, backbone, out_dim):
+    def configure_backbone(self):
+        raise NotImplementedError("Method to be called in child class!!")
+
+
+class ResNetHybridViT(HybridVisionTransformer):
+    def __init__(
+        self,
+        img_dim,
+        out_dim,
+        num_channels,
+        embedding_dim,
+        num_heads,
+        num_layers,
+        hidden_dim,
+        include_conv5=False,
+        dropout_rate=0.1,
+        positional_encoding_type="learned",
+        backbone='r50x1',
+    ):
+        super(ResNetHybridViT, self).__init__(
+            img_dim=img_dim,
+            out_dim=out_dim,
+            num_channels=num_channels,
+            embedding_dim=embedding_dim,
+            num_heads=num_heads,
+            num_layers=num_layers,
+            hidden_dim=hidden_dim,
+            include_conv5=include_conv5,
+            dropout_rate=dropout_rate,
+            positional_encoding_type=positional_encoding_type,
+            backbone=backbone,
+        )
+
+    def configure_backbone(self):
         """
         Current support offered for all BiT models
         KNOWN_MODELS in https://github.com/google-research/big_transfer/blob/master/bit_pytorch/models.py
@@ -91,6 +126,9 @@ class HybridVisionTransformer(nn.Module):
         where depth in [50, 101, 152]
         where width in [1,2,3,4]
         """
+        backbone = self.backbone
+        out_dim = self.out_dim
+
         splits = backbone.split('x')
         model_name = splits[0]
         width_factor = int(splits[1])
@@ -114,6 +152,71 @@ class HybridVisionTransformer(nn.Module):
 
         if self.num_channels == 3:
             flatten_dim = 1024 * width_factor
+        if self.include_conv5:
+            flatten_dim *= 2
+
+        return model, flatten_dim
+
+
+class AxialNetHybridViT(HybridVisionTransformer):
+    def __init__(
+        self,
+        img_dim,
+        out_dim,
+        num_channels,
+        embedding_dim,
+        num_heads,
+        num_layers,
+        hidden_dim,
+        include_conv5=False,
+        dropout_rate=0.1,
+        positional_encoding_type="learned",
+        backbone='a50m',
+    ):
+        super(AxialNetHybridViT, self).__init__(
+            img_dim=img_dim,
+            out_dim=out_dim,
+            num_channels=num_channels,
+            embedding_dim=embedding_dim,
+            num_heads=num_heads,
+            num_layers=num_layers,
+            hidden_dim=hidden_dim,
+            include_conv5=include_conv5,
+            dropout_rate=dropout_rate,
+            positional_encoding_type=positional_encoding_type,
+            backbone=backbone,
+        )
+
+    def configure_backbone(self):
+        """
+        Current support offered for all BiT models
+        models from https://github.com/csrhddlam/axial-deeplab/blob/master/lib/models/axialnet.py
+
+        expects model name of style 'a{depth}{width}'
+        where depth in [26, 50, 101]
+        where width in [s, m, l]
+        """
+        backbone = self.backbone
+        out_dim = self.out_dim
+
+        model_name = backbone[:3]
+        width = backbone[-1]
+
+        block_units_dict = {
+            'a26': [1, 2, 4, 1],
+            'a50': [3, 4, 6, 3],
+            'a101': [3, 4, 23, 3],
+        }
+        block_units = block_units_dict.get(model_name, [3, 4, 6, 3])
+
+        scale_factor_dict = {'s': 0.5, 'm': 0.75, 'l': 1.0}
+        scale_factor = scale_factor_dict.get(width, 0.75)
+        model = AxialAttentionNet(
+            block_units, s=scale_factor, num_classes=out_dim
+        )
+
+        if self.num_channels == 3:
+            flatten_dim = int(512 * float(scale_factor / 0.5))
         if self.include_conv5:
             flatten_dim *= 2
 
