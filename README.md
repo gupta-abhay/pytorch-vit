@@ -9,13 +9,18 @@ Implementation of [Vision Transformer](https://openreview.net/forum?id=YicbFdNTT
 Current Support for:
 
 - [x] Vanilla ViT
-- [x] Hybrid ViT (with support for BiT-style resnets)
+- [x] Hybrid ViT (with support for BiTResNets as backbone)
 - [x] Hybrid ViT (with support for AxialResNets as backbone)
 
 To Do:
 
-- [ ] Full Axial-ViT
 - [ ] Training Script
+- [ ] Full Axial-ViT
+
+## References
+
+1. [BiTResNet](https://github.com/google-research/big_transfer/tree/master/bit_pytorch)
+2. [AxialResNet](https://github.com/csrhddlam/axial-deeplab)
 
 ## Citations
 
