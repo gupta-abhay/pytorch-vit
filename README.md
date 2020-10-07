@@ -21,8 +21,15 @@ To Do:
 
 ## Installation
 
+Create the environment:
+
 ```bash
-pip install tensorboardX
+conda env create -f environment.yml
+```
+
+Preparing the dataset:
+
+```bash
 mkdir data
 cd data
 ln -s path/to/dataset imagenet
@@ -30,19 +37,19 @@ ln -s path/to/dataset imagenet
 
 ## Running the Scripts
 
-For non-distributed training:
+For *non-distributed training*:
 
 ```bash
 python train.py --model ViT --name vit_logs
 ```
 
-For distributed training:
+For *distributed training*:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0,1,2,3 python dist_train.py --model ViT --name vit_dist_logs
 ```
 
-For testing add the `--test` parameter:
+For *testing* add the `--test` parameter:
 
 ```bash
 python train.py --model ViT --name vit_logs --test
