@@ -6,15 +6,16 @@ Implementation of [Vision Transformer](https://openreview.net/forum?id=YicbFdNTT
 
 ## Features
 
-Current Support for:
-
 - [x] Vanilla ViT
 - [x] Hybrid ViT (with support for BiTResNets as backbone)
 - [x] Hybrid ViT (with support for AxialResNets as backbone)
+- [x] Training Scripts
 
 To Do:
 
 - [ ] Training Script
+  - [ ] Support for linear decay
+  - [ ] Correct hyper parameters
 - [ ] Full Axial-ViT
 
 ## References
