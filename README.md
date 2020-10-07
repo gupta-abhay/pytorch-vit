@@ -17,6 +17,7 @@ To Do:
   - [ ] Support for linear decay
   - [ ] Correct hyper parameters
 - [ ] Full Axial-ViT
+- [ ] Results for Imagenet-1K and Imagenet-21K
 
 ## Installation
 
@@ -45,17 +46,14 @@ For testing add the `--test` parameter:
 
 ```bash
 python train.py --model ViT --name vit_logs --test
-```
-
-```bash
 CUDA_VISIBLE_DEVICES=0,1,2,3 python dist_train.py --model ViT --name vit_dist_logs --test
 ```
 
 ## References
 
-1. [BiTResNet](https://github.com/google-research/big_transfer/tree/master/bit_pytorch)
-2. [AxialResNet](https://github.com/csrhddlam/axial-deeplab)
-3. [Training Scripts](https://github.com/csrhddlam/axial-deeplab)
+1. BiTResNet: https://github.com/google-research/big_transfer/tree/master/bit_pytorch
+2. AxialResNet: https://github.com/csrhddlam/axial-deeplab
+3. Training Scripts: https://github.com/csrhddlam/axial-deeplab
 
 ## Citations
 
