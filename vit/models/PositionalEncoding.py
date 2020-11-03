@@ -29,7 +29,8 @@ class LearnedPositionalEncoding(nn.Module):
         self.seq_length = seq_length
 
         self.register_buffer(
-            "position_ids", torch.arange(self.seq_length).expand((1, -1))
+            "position_ids",
+            torch.arange(max_position_embeddings).expand((1, -1)),
         )
 
     def forward(self, x, position_ids=None):
