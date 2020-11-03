@@ -1,31 +1,44 @@
 import math
 import torch
 import torch.nn as nn
-from einops import rearrange
 import torch.nn.functional as F
 
 
 class SelfAttention(nn.Module):
-    def __init__(self, dim, heads=8):
+    def __init__(
+        self, dim, heads=8, qkv_bias=False, qk_scale=None, dropout_rate=0.0
+    ):
         super().__init__()
-        self.heads = heads
-        self.scale = dim ** -0.5
+        self.num_heads = heads
+        head_dim = dim // heads
+        self.scale = qk_scale or head_dim ** -0.5
 
-        self.to_qkv = nn.Linear(dim, dim * 3, bias=False)
-        self.to_out = nn.Linear(dim, dim)
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.attn_drop = nn.Dropout(dropout_rate)
+        self.proj = nn.Linear(dim, dim)
+        self.proj_drop = nn.Dropout(dropout_rate)
 
     def forward(self, x):
-        b, n, _, h = *x.shape, self.heads
-        qkv = self.to_qkv(x)
-        q, k, v = rearrange(qkv, 'b n (qkv h d) -> qkv b h n d', qkv=3, h=h)
+        B, N, C = x.shape
+        qkv = (
+            self.qkv(x)
+            .reshape(B, N, 3, self.num_heads, C // self.num_heads)
+            .permute(2, 0, 3, 1, 4)
+        )
+        q, k, v = (
+            qkv[0],
+            qkv[1],
+            qkv[2],
+        )  # make torchscript happy (cannot use tensor as tuple)
 
-        dots = torch.einsum('bhid,bhjd->bhij', q, k) * self.scale
-        attn = dots.softmax(dim=-1)
+        attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn = attn.softmax(dim=-1)
+        attn = self.attn_drop(attn)
 
-        out = torch.einsum('bhij,bhjd->bhid', attn, v)
-        out = rearrange(out, 'b h n d -> b n (h d)')
-        out = self.to_out(out)
-        return out
+        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = self.proj(x)
+        x = self.proj_drop(x)
+        return x
 
 
 class AxialAttention(nn.Module):
