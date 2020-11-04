@@ -1,35 +1,7 @@
-import math
 import os
 import torch
 import torch.nn.functional as F
-
-
-def adjust_learning_rate(
-    args, optimizer, epoch, batch_idx, data_nums, type="cosine"
-):
-    if epoch < args.warmup_epochs:
-        epoch += float(batch_idx + 1) / data_nums
-        lr_adj = 1.0 * (epoch / args.warmup_epochs)
-    elif type == "linear":
-        if epoch < 30 + args.warmup_epochs:
-            lr_adj = 1.0
-        elif epoch < 60 + args.warmup_epochs:
-            lr_adj = 1e-1
-        elif epoch < 90 + args.warmup_epochs:
-            lr_adj = 1e-2
-        else:
-            lr_adj = 1e-3
-    elif type == "cosine":
-        run_epochs = epoch - args.warmup_epochs
-        total_epochs = args.epochs - args.warmup_epochs
-        T_cur = float(run_epochs * data_nums) + batch_idx
-        T_total = float(total_epochs * data_nums)
-
-        lr_adj = 0.5 * (1 + math.cos(math.pi * T_cur / T_total))
-
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = args.lr * lr_adj
-    return args.lr * lr_adj
+import torch.distributed as dist
 
 
 def label_smoothing(pred, target, eta=0.1):
@@ -184,3 +156,36 @@ def convert_model(model):
     for k in model.keys():
         new_model[k[7:]] = model[k]
     return new_model
+
+
+def get_rank():
+    if not dist.is_available():
+        return 0
+    if not dist.is_initialized():
+        return 0
+    return dist.get_rank()
+
+
+def get_world_size():
+    if not dist.is_available():
+        return 1
+    if not dist.is_initialized():
+        return 1
+    return dist.get_world_size()
+
+
+def is_main_process():
+    return get_rank() == 0
+
+
+def format_step(step):
+    if isinstance(step, str):
+        return step
+    s = ""
+    if len(step) > 0:
+        s += "Training Epoch: {} ".format(step[0])
+    if len(step) > 1:
+        s += "Training Iteration: {} ".format(step[1])
+    if len(step) > 2:
+        s += "Validation Iteration: {} ".format(step[2])
+    return s

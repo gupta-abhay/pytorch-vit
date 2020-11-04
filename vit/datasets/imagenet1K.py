@@ -1,6 +1,10 @@
 import torch
-import torchvision
 from torchvision import datasets, transforms
+from torch.utils.data import (
+    DistributedSampler,
+    RandomSampler,
+    SequentialSampler,
+)
 
 
 def imagenet1k(args, distributed=False):
@@ -29,11 +33,9 @@ def imagenet1k(args, distributed=False):
     transform_train = transforms.Compose(process)
     train_set = datasets.ImageFolder(train_dirs, transform=transform_train)
     if distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_set
-        )
+        train_sampler = DistributedSampler(train_set)
     else:
-        train_sampler = None
+        train_sampler = RandomSampler(train_set)
 
     train_loader = torch.utils.data.DataLoader(
         train_set,
@@ -54,9 +56,9 @@ def imagenet1k(args, distributed=False):
     )
     val_set = datasets.ImageFolder(root=val_dirs, transform=transform_val)
     if distributed:
-        val_sampler = torch.utils.data.distributed.DistributedSampler(val_set)
+        train_sampler = DistributedSampler(val_set)
     else:
-        val_sampler = None
+        train_sampler = SequentialSampler(val_set)
 
     val_loader = torch.utils.data.DataLoader(
         val_set,
