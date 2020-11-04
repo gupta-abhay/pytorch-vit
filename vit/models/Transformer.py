@@ -48,7 +48,15 @@ class FeedForward(nn.Module):
 
 
 class TransformerModel(nn.Module):
-    def __init__(self, dim, depth, heads, mlp_dim, dropout_rate=0.1):
+    def __init__(
+        self,
+        dim,
+        depth,
+        heads,
+        mlp_dim,
+        dropout_rate=0.1,
+        attn_dropout_rate=0.1,
+    ):
         super().__init__()
         layers = []
         for _ in range(depth):
@@ -59,7 +67,7 @@ class TransformerModel(nn.Module):
                             dim,
                             dropout_rate,
                             SelfAttention(
-                                dim, heads=heads, dropout_rate=dropout_rate
+                                dim, heads=heads, dropout_rate=attn_dropout_rate
                             ),
                         )
                     ),
