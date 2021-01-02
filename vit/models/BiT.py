@@ -88,8 +88,8 @@ class ResNetV2Model(nn.Module):
         super(ResNetV2Model, self).__init__()
         wf = width_factor  # shortcut 'cause we'll use it a lot.
 
-        # The following will be unreadable if we split lines.
-        # pylint: disable=line-too-long
+        # The following will be unreadable if we split lines. Do not format
+        # fmt: off
         self.conv1 = nn.Sequential(OrderedDict([
             ('conv', StdConv2d(3, 64*wf, kernel_size=7, stride=2, padding=3, bias=False)),
             ('pad', nn.ConstantPad2d(1, 0)),
@@ -112,7 +112,6 @@ class ResNetV2Model(nn.Module):
             [('unit01', PreActBottleneck(in_planes=1024*wf, out_planes=2048*wf, mid_planes=512*wf, stride=2))] +
             [(f'unit{i:02d}', PreActBottleneck(in_planes=2048*wf, out_planes=2048*wf, mid_planes=512*wf)) for i in range(2, block_units[3] + 1)],
         ))
-        # pylint: enable=line-too-long
 
         self.head = nn.Sequential(OrderedDict([
             ('gn', nn.GroupNorm(32, 2048*wf)),
@@ -120,6 +119,7 @@ class ResNetV2Model(nn.Module):
             ('avg', nn.AdaptiveAvgPool2d(output_size=1)),
             ('conv', nn.Conv2d(2048*wf, head_size, kernel_size=1, bias=True)),
         ]))
+        # fmt: on
 
     def forward(self, x, include_conv5=False, include_top=False):
         x = self.conv1(x)
