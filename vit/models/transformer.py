@@ -8,14 +8,20 @@ class Transformer(nn.Module):
         dim,
         depth,
         heads,
-        dim_head,
-        mlp_dim,
+        mlp_ratio=4.0,
         attn_dropout=0.0,
         dropout=0.0,
+        qkv_bias=True,
         revised=False,
     ):
         super().__init__()
         self.layers = nn.ModuleList([])
+
+        assert isinstance(
+            mlp_ratio, float
+        ), "MLP ratio should be an integer for valid "
+        mlp_dim = int(mlp_ratio * dim)
+
         for _ in range(depth):
             self.layers.append(
                 nn.ModuleList(
@@ -24,15 +30,19 @@ class Transformer(nn.Module):
                             dim,
                             Attention(
                                 dim,
-                                heads=heads,
-                                dim_head=dim_head,
-                                dropout=attn_dropout,
+                                num_heads=heads,
+                                qkv_bias=qkv_bias,
+                                attn_drop=attn_dropout,
+                                proj_drop=dropout,
                             ),
                         ),
                         PreNorm(
                             dim,
                             FeedForward(
-                                dim, mlp_dim, dropout=dropout, revised=revised
+                                dim,
+                                mlp_dim,
+                                dropout_rate=dropout,
+                                revised=revised,
                             ),
                         ),
                     ]

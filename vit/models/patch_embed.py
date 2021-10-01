@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from einops.layers.torch import Rearrange
 
@@ -13,12 +14,14 @@ class EmbeddingStem(nn.Module):
         patch_size=16,
         channels=3,
         embedding_dim=768,
-        hidden_dims=[64, 128, 128, 256, 256, 512],
+        hidden_dims=None,
         conv_patch=False,
         linear_patch=False,
         conv_stem=True,
         conv_stem_original=True,
         conv_stem_scaled_relu=False,
+        position_embedding_dropout=None,
+        cls_head=True,
     ):
         super(EmbeddingStem, self).__init__()
 
@@ -33,9 +36,26 @@ class EmbeddingStem(nn.Module):
             image_height % patch_height == 0 and image_width % patch_width == 0
         ), "Image dimensions must be divisible by the patch size."
 
-        self.conv_stem = conv_stem
-        self.conv_patch = conv_patch
-        self.linear_patch = linear_patch
+        assert (
+            conv_stem ^ cls_head
+        ), "Cannot use [CLS] token approach with full conv stems for ViT"
+
+        if linear_patch or conv_patch:
+            self.grid_size = (
+                image_height // patch_height,
+                image_width // patch_width,
+            )
+            num_patches = self.grid_size[0] * self.grid_size[1]
+
+            if cls_head:
+                self.cls_token = nn.Parameter(torch.zeros(1, 1, embedding_dim))
+                num_patches += 1
+
+            # positional embedding
+            self.pos_embed = nn.Parameter(
+                torch.zeros(1, num_patches, embedding_dim)
+            )
+            self.pos_drop = nn.Dropout(p=position_embedding_dropout)
 
         if conv_patch:
             self.projection = nn.Sequential(
@@ -133,10 +153,25 @@ class EmbeddingStem(nn.Module):
             else:
                 raise ValueError("Undefined convolutional stem type defined")
 
+        self.conv_stem = conv_stem
+        self.conv_patch = conv_patch
+        self.linear_patch = linear_patch
+        self.cls_head = cls_head
+
     def forward(self, x):
-        if self.linear_patch:
-            return self.projection(x)
-        elif self.conv_stem or self.conv_patch:
+        if self.conv_stem:
             x = self.projection(x)
             x = x.flatten(2).transpose(1, 2)
             return x
+
+        # paths for cls_token / position embedding
+        elif self.linear_patch:
+            x = self.projection(x)
+        elif self.conv_patch:
+            x = self.projection(x)
+            x = x.flatten(2).transpose(1, 2)
+
+        if self.cls_head:
+            cls_token = self.cls_token.expand(x.shape[0], -1, -1)
+            x = torch.cat((cls_token, x), dim=1)
+        return self.pos_drop(x + self.pos_embed)

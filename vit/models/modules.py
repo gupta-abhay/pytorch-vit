@@ -17,6 +17,11 @@ class Attention(nn.Module):
         self, dim, num_heads=8, qkv_bias=False, attn_drop=0.0, proj_drop=0.0
     ):
         super().__init__()
+
+        assert (
+            dim % num_heads == 0
+        ), "Embedding dimension should be divisible by number of heads"
+
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale = head_dim ** -0.5
@@ -62,7 +67,6 @@ class FeedForward(nn.Module):
                 nn.GELU(),
                 nn.Dropout(p=dropout_rate),
                 nn.Linear(hidden_dim, dim),
-                nn.Dropout(p=dropout_rate),
             )
         else:
             """
@@ -91,28 +95,13 @@ class FeedForward(nn.Module):
         return x
 
 
-class PositionalEncoding(nn.Module):
-    def __init__(self, max_position_embeddings, embedding_dim, seq_length):
-        super(PositionalEncoding, self).__init__()
-        self.pe = nn.Embedding(max_position_embeddings, embedding_dim)
-        self.seq_length = seq_length
-
-        self.register_buffer(
-            "position_ids",
-            torch.arange(max_position_embeddings).expand((1, -1)),
-        )
-
-    def forward(self, x, position_ids=None):
-        if position_ids is None:
-            position_ids = self.position_ids[:, : self.seq_length]
-
-        position_embeddings = self.pe(position_ids)
-        return x + position_embeddings
-
-
 class OutputLayer(nn.Module):
     def __init__(
-        self, embedding_dim, num_classes=1000, representation_size=None
+        self,
+        embedding_dim,
+        num_classes=1000,
+        representation_size=None,
+        cls_head=False,
     ):
         self.num_classes = num_classes
         modules = []
@@ -125,5 +114,18 @@ class OutputLayer(nn.Module):
 
         self.net = nn.Sequential(*modules)
 
+        if cls_head:
+            self.to_cls_token = nn.Identity()
+
+        self.cls_head = cls_head
+
     def forward(self, x):
+        if self.cls_head:
+            x = self.to_cls_token(x[:, 0])
+        else:
+            """
+            Scaling Vision Transformer: https://arxiv.org/abs/2106.04560
+            """
+            x = torch.mean(x, dim=1)
+
         return self.net(x)

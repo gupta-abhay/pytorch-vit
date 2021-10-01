@@ -1,6 +1,8 @@
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
+from patch_embed import EmbeddingStem
+from transformer import Transformer
+from modules import OutputLayer
 
 
 __all__ = ['ViT_B16', 'ViT_B32', 'ViT_L16', 'ViT_L32', 'ViT_H14']
@@ -12,121 +14,72 @@ class VisionTransformer(nn.Module):
         image_size=224,
         patch_size=16,
         in_channels=3,
-        num_classes=1000,
+        # transformer parameters
         embedding_dim=768,
         num_layers=12,
         num_heads=12,
-        mlp_ratio=4.0,
         qkv_bias=True,
-        representation_size=None,
+        mlp_ratio=4.0,
+        use_revised_ffn=False,
         dropout_rate=0.0,
         attn_dropout_rate=0.0,
+        # embedding parameters
         use_conv_stem=True,
         use_conv_patch=False,
         use_linear_patch=False,
-        use_revised_ffn=False,
+        use_conv_stem_original=True,
+        use_stem_scaled_relu=False,
+        hidden_dims=None,
+        # output parameters
+        cls_head=False,
+        num_classes=1000,
+        representation_size=None,
     ):
         super(VisionTransformer, self).__init__()
 
-        assert embedding_dim % num_heads == 0
-        assert img_dim % patch_dim == 0
-
-        self.embedding_dim = embedding_dim
-        self.num_heads = num_heads
-        self.patch_dim = patch_dim
-        self.num_channels = num_channels
-        self.dropout_rate = dropout_rate
-        self.attn_dropout_rate = attn_dropout_rate
-        self.conv_patch_representation = conv_patch_representation
-
-        self.num_patches = int((img_dim // patch_dim) ** 2)
-        self.seq_length = self.num_patches + 1
-        self.flatten_dim = patch_dim * patch_dim * num_channels
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, embedding_dim))
-
-        self.linear_encoding = nn.Linear(self.flatten_dim, embedding_dim)
-        if positional_encoding_type == "learned":
-            self.position_encoding = LearnedPositionalEncoding(
-                self.seq_length, self.embedding_dim, self.seq_length
-            )
-        elif positional_encoding_type == "fixed":
-            self.position_encoding = FixedPositionalEncoding(
-                self.embedding_dim,
-            )
-
-        self.pe_dropout = nn.Dropout(p=self.dropout_rate)
-
-        self.transformer = TransformerModel(
-            embedding_dim,
-            num_layers,
-            num_heads,
-            hidden_dim,
-            self.dropout_rate,
-            self.attn_dropout_rate,
+        # embedding parameters
+        self.embedding_layer = EmbeddingStem(
+            image_size=image_size,
+            patch_size=patch_size,
+            channels=in_channels,
+            embedding_dim=embedding_dim,
+            hidden_dims=hidden_dims,
+            conv_patch=use_conv_patch,
+            linear_patch=use_linear_patch,
+            conv_stem=use_conv_stem,
+            conv_stem_original=use_conv_stem_original,
+            conv_stem_scaled_relu=use_stem_scaled_relu,
+            position_embedding_dropout=dropout_rate,
+            cls_head=cls_head,
         )
-        self.pre_head_ln = nn.LayerNorm(embedding_dim)
-        if use_representation:
-            self.mlp_head = nn.Sequential(
-                nn.Linear(embedding_dim, hidden_dim),
-                nn.Tanh(),
-                nn.Linear(hidden_dim, out_dim),
-            )
-        else:
-            self.mlp_head = nn.Linear(embedding_dim, out_dim)
 
-        if self.conv_patch_representation:
-            self.conv_x = nn.Conv2d(
-                self.num_channels,
-                self.embedding_dim,
-                kernel_size=(self.patch_dim, self.patch_dim),
-                stride=(self.patch_dim, self.patch_dim),
-                padding=self._get_padding(
-                    'VALID', (self.patch_dim, self.patch_dim),
-                ),
-            )
-        else:
-            self.conv_x = None
+        # transformer parameters
+        self.transformer = Transformer(
+            dim=embedding_dim,
+            depth=num_layers,
+            heads=num_heads,
+            mlp_ratio=mlp_ratio,
+            attn_dropout=attn_dropout_rate,
+            dropout=dropout_rate,
+            qkv_bias=qkv_bias,
+            revised=use_revised_ffn,
+        )
+        self.post_transformer_ln = nn.LayerNorm(embedding_dim)
 
-        self.to_cls_token = nn.Identity()
+        # output layer params
+        self.cls_layer = OutputLayer(
+            embedding_dim,
+            num_classes=num_classes,
+            representation_size=representation_size,
+            cls_head=cls_head,
+        )
 
     def forward(self, x):
-        n, c, h, w = x.shape
-        if self.conv_patch_representation:
-            # combine embedding w/ conv patch distribution
-            x = self.conv_x(x)
-            x = x.permute(0, 2, 3, 1).contiguous()
-            x = x.view(x.size(0), -1, self.flatten_dim)
-        else:
-            x = (
-                x.unfold(2, self.patch_dim, self.patch_dim)
-                .unfold(3, self.patch_dim, self.patch_dim)
-                .contiguous()
-            )
-            x = x.view(n, c, -1, self.patch_dim ** 2)
-            x = x.permute(0, 2, 3, 1).contiguous()
-            x = x.view(x.size(0), -1, self.flatten_dim)
-            x = self.linear_encoding(x)
-
-        cls_tokens = self.cls_token.expand(x.shape[0], -1, -1)
-        x = torch.cat((cls_tokens, x), dim=1)
-        x = self.position_encoding(x)
-        x = self.pe_dropout(x)
-
-        # apply transformer
+        x = self.embedding_layer(x)
         x = self.transformer(x)
-        x = self.pre_head_ln(x)
-        x = self.to_cls_token(x[:, 0])
-        x = self.mlp_head(x)
-        x = F.log_softmax(x, dim=-1)
-
+        x = self.post_transformer_ln(x)
+        x = self.cls_layer(x)
         return x
-
-    def _get_padding(self, padding_type, kernel_size):
-        assert padding_type in ['SAME', 'VALID']
-        if padding_type == 'SAME':
-            _list = [(k - 1) // 2 for k in kernel_size]
-            return tuple(_list)
-        return tuple(0 for _ in kernel_size)
 
 
 def ViT_B16(dataset='imagenet'):
