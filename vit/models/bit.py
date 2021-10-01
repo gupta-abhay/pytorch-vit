@@ -132,7 +132,7 @@ class ResNetV2Model(nn.Module):
             x = self.head(x)
 
         if include_top and include_conv5:
-            assert x.shape[-2:] == (1,1,)
+            assert x.shape[-2:] == (1, 1,)
             return x[..., 0, 0]
 
         return x

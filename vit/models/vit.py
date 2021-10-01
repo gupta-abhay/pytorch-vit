@@ -1,11 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Transformer import TransformerModel
-from PositionalEncoding import (
-    FixedPositionalEncoding,
-    LearnedPositionalEncoding,
-)
+
 
 __all__ = ['ViT_B16', 'ViT_B32', 'ViT_L16', 'ViT_L32', 'ViT_H14']
 
@@ -13,19 +9,22 @@ __all__ = ['ViT_B16', 'ViT_B32', 'ViT_L16', 'ViT_L32', 'ViT_H14']
 class VisionTransformer(nn.Module):
     def __init__(
         self,
-        img_dim,
-        patch_dim,
-        out_dim,
-        num_channels,
-        embedding_dim,
-        num_heads,
-        num_layers,
-        hidden_dim,
+        image_size=224,
+        patch_size=16,
+        in_channels=3,
+        num_classes=1000,
+        embedding_dim=768,
+        num_layers=12,
+        num_heads=12,
+        mlp_ratio=4.0,
+        qkv_bias=True,
+        representation_size=None,
         dropout_rate=0.0,
         attn_dropout_rate=0.0,
-        use_representation=True,
-        conv_patch_representation=False,
-        positional_encoding_type="learned",
+        use_conv_stem=True,
+        use_conv_patch=False,
+        use_linear_patch=False,
+        use_revised_ffn=False,
     ):
         super(VisionTransformer, self).__init__()
 

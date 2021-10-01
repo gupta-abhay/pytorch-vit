@@ -231,14 +231,3 @@ class AxialAttentionNet(nn.Module):
 
     def forward(self, x, include_conv5=False, include_top=False):
         return self._forward_impl(x, include_conv5, include_top)
-
-
-if __name__ == "__main__":
-    model = AxialAttentionNet([1, 2, 4, 1], s=0.5)
-    # model = AxialAttentionNet([3, 4, 6, 3], s=0.25)
-    # print(model)
-
-    x = torch.randn([8, 3, 224, 224])
-    print(model(x).shape)
-    print(model(x, include_conv5=True).shape)
-    print(model(x, include_conv5=True, include_top=True).shape)
