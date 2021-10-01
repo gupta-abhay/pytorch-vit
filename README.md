@@ -2,7 +2,8 @@
 
 Implementation of [Vision Transformer](https://openreview.net/forum?id=YicbFdNTTy) in PyTorch, a new model to achieve SOTA in vision classification with using transformer style encoders. Associated [blog](https://abhaygupta.dev/blog/vision-transformer) article.
 
-![ViT](./static/model.png)
+> Credits to Phil Wang for the gif
+![ViT](./static/vit.gif)
 
 ## Features
 
