@@ -4,7 +4,7 @@ import torch.nn as nn
 
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
-        super().__init__()
+        super(PreNorm, self).__init__()
         self.norm = nn.LayerNorm(dim)
         self.fn = fn
 
@@ -16,7 +16,7 @@ class Attention(nn.Module):
     def __init__(
         self, dim, num_heads=8, qkv_bias=False, attn_drop=0.0, proj_drop=0.0
     ):
-        super().__init__()
+        super(Attention, self).__init__()
 
         assert (
             dim % num_heads == 0
@@ -83,6 +83,12 @@ class FeedForward(nn.Module):
             )
 
         self.revised = revised
+        self._init_weights()
+
+    def _init_weights(self):
+        for name, module in self.net.named_children():
+            if isinstance(module, nn.Linear):
+                nn.init.normal_(module.bias, std=1e-6)
 
     def forward(self, x):
         if self.revised:
@@ -103,6 +109,8 @@ class OutputLayer(nn.Module):
         representation_size=None,
         cls_head=False,
     ):
+        super(OutputLayer, self).__init__()
+
         self.num_classes = num_classes
         modules = []
         if representation_size:
@@ -118,6 +126,15 @@ class OutputLayer(nn.Module):
             self.to_cls_token = nn.Identity()
 
         self.cls_head = cls_head
+        self.num_classes = num_classes
+        self._init_weights()
+
+    def _init_weights(self):
+        for name, module in self.net.named_children():
+            if isinstance(module, nn.Linear):
+                if module.weight.shape[0] == self.num_classes:
+                    nn.init.zeros_(module.weight)
+                    nn.init.zeros_(module.bias)
 
     def forward(self, x):
         if self.cls_head:

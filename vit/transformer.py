@@ -38,12 +38,11 @@ class Transformer(nn.Module):
                         ),
                         PreNorm(
                             dim,
-                            FeedForward(
-                                dim,
-                                mlp_dim,
-                                dropout_rate=dropout,
-                                revised=revised,
-                            ),
+                            FeedForward(dim, mlp_dim, dropout_rate=dropout,),
+                        )
+                        if not revised
+                        else FeedForward(
+                            dim, mlp_dim, dropout_rate=dropout, revised=True,
                         ),
                     ]
                 )

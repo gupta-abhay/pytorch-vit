@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from einops.layers.torch import Rearrange
+from utils import trunc_normal_
 
 
 def pair(t):
@@ -36,8 +37,8 @@ class EmbeddingStem(nn.Module):
             image_height % patch_height == 0 and image_width % patch_width == 0
         ), "Image dimensions must be divisible by the patch size."
 
-        assert (
-            conv_stem ^ cls_head
+        assert not (
+            conv_stem and cls_head
         ), "Cannot use [CLS] token approach with full conv stems for ViT"
 
         if linear_patch or conv_patch:
@@ -157,6 +158,12 @@ class EmbeddingStem(nn.Module):
         self.conv_patch = conv_patch
         self.linear_patch = linear_patch
         self.cls_head = cls_head
+
+        self._init_weights()
+
+    def _init_weights(self):
+        if not self.conv_stem:
+            trunc_normal_(self.pos_embed, std=0.02)
 
     def forward(self, x):
         if self.conv_stem:
